@@ -3,7 +3,7 @@ import { Group, Expense, User, ApiResponse } from '@/types';
 
 // API Configuration - Updated to match the backend port
 const API_BASE_URL = 'http://localhost:5051/api';
-const USE_MOCK_DATA = true; // Set to false once backend is properly connected
+const USE_MOCK_DATA = false; // Set to true to use mock data instead of API
 
 // Mock data for development (keeping existing mock data for fallback)
 const mockGroups: Group[] = [
@@ -143,6 +143,7 @@ api.interceptors.request.use(
     if (authToken) {
       config.headers.Authorization = `Bearer ${authToken}`;
     }
+    console.log(`Making API request to: ${config.baseURL}${config.url}`);
     return config;
   },
   (error) => {
@@ -152,9 +153,14 @@ api.interceptors.request.use(
 
 // Response interceptor for error handling
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`API response from ${response.config.url}:`, response.status);
+    return response;
+  },
   (error) => {
     console.error('API Error:', error.response?.data || error.message);
+    console.error('API Error Status:', error.response?.status);
+    console.error('API Error URL:', error.config?.url);
     
     // Handle 401 errors (unauthorized)
     if (error.response?.status === 401) {
@@ -213,21 +219,17 @@ export const apiService = {
     }
 
     try {
+      console.log('Attempting login with:', { email });
       const response = await api.post('/users/login', { email, password });
+      console.log('Login response:', response.data);
+      
       const { token, user } = response.data;
       authToken = token;
       return { token, user };
     } catch (error) {
-      console.warn('Login API call failed, using mock data:', error);
-      // Fallback to mock data
-      const mockUser = {
-        id: '1',
-        name: 'Demo User',
-        email: email,
-      };
-      const mockToken = 'mock_jwt_token_' + Date.now();
-      authToken = mockToken;
-      return { token: mockToken, user: mockUser };
+      console.error('Login API call failed:', error);
+      // Don't fallback to mock data for login - throw the error
+      throw new Error(error.response?.data?.message || 'Login failed');
     }
   },
 
@@ -248,32 +250,30 @@ export const apiService = {
     }
 
     try {
+      console.log('Attempting registration with:', { name, email });
       const response = await api.post('/users/add', { name, email, password });
+      console.log('Registration response:', response.data);
+      
       const { token, user } = response.data;
       authToken = token;
       return { token, user };
     } catch (error) {
-      console.warn('Registration API call failed, using mock data:', error);
-      // Fallback to mock data
-      const mockUser = {
-        id: Date.now().toString(),
-        name: name,
-        email: email,
-      };
-      const mockToken = 'mock_jwt_token_' + Date.now();
-      authToken = mockToken;
-      return { token: mockToken, user: mockUser };
+      console.error('Registration API call failed:', error);
+      // Don't fallback to mock data for registration - throw the error
+      throw new Error(error.response?.data?.error || error.response?.data?.message || 'Registration failed');
     }
   },
 
   // Set auth token (for when user logs in)
   setAuthToken(token: string) {
     authToken = token;
+    console.log('Auth token set');
   },
 
   // Clear auth token (for logout)
   clearAuthToken() {
     authToken = null;
+    console.log('Auth token cleared');
   },
 
   // Groups
@@ -285,15 +285,18 @@ export const apiService = {
     }
 
     try {
+      console.log('Fetching groups...');
       const response = await api.get('/groups');
-      const groups = response.data.data;
+      console.log('Groups response:', response.data);
+      
+      const groups = response.data.data || response.data;
 
       // For each group, fetch expenses and calculate stats
       const groupsWithStats = await Promise.all(
         groups.map(async (group: any) => {
           try {
             const expensesResponse = await api.get(`/expenses/group/${group.id}`);
-            const expenses = expensesResponse.data.data;
+            const expenses = expensesResponse.data.data || expensesResponse.data;
             const { balances, totalExpenses } = calculateGroupStats(expenses, group.members);
 
             return {
@@ -314,7 +317,7 @@ export const apiService = {
 
       return groupsWithStats;
     } catch (error) {
-      console.warn('API call failed, using mock data:', error);
+      console.warn('Groups API call failed, using mock data:', error);
       return mockGroups;
     }
   },
@@ -330,13 +333,14 @@ export const apiService = {
     }
 
     try {
+      console.log('Fetching group:', id);
       const [groupResponse, expensesResponse] = await Promise.all([
         api.get(`/groups/${id}`),
         api.get(`/expenses/group/${id}`)
       ]);
 
-      const group = groupResponse.data.data;
-      const expenses = expensesResponse.data.data;
+      const group = groupResponse.data.data || groupResponse.data;
+      const expenses = expensesResponse.data.data || expensesResponse.data;
       const { balances, totalExpenses } = calculateGroupStats(expenses, group.members);
 
       return {
@@ -345,7 +349,7 @@ export const apiService = {
         balances,
       };
     } catch (error) {
-      console.warn('API call failed, using mock data:', error);
+      console.warn('Group API call failed, using mock data:', error);
       const group = mockGroups.find(g => g.id === id);
       return group || null;
     }
@@ -369,10 +373,13 @@ export const apiService = {
     }
 
     try {
+      console.log('Creating group:', group);
       const response = await api.post('/groups', group);
-      return response.data.data;
+      console.log('Create group response:', response.data);
+      
+      return response.data.data || response.data;
     } catch (error) {
-      console.warn('API call failed, using mock behavior:', error);
+      console.warn('Create group API call failed, using mock behavior:', error);
       const newGroup: Group = {
         ...group,
         id: Date.now().toString(),
@@ -397,10 +404,13 @@ export const apiService = {
     }
 
     try {
+      console.log('Fetching expenses for group:', groupId);
       const response = await api.get(`/expenses/group/${groupId}`);
-      return response.data.data;
+      console.log('Expenses response:', response.data);
+      
+      return response.data.data || response.data;
     } catch (error) {
-      console.warn('API call failed, using mock data:', error);
+      console.warn('Expenses API call failed, using mock data:', error);
       return mockExpenses[groupId] || [];
     }
   },
@@ -432,10 +442,13 @@ export const apiService = {
     }
 
     try {
+      console.log('Creating expense:', expense);
       const response = await api.post('/expenses', expense);
-      return response.data.data;
+      console.log('Create expense response:', response.data);
+      
+      return response.data.data || response.data;
     } catch (error) {
-      console.warn('API call failed, using mock behavior:', error);
+      console.warn('Create expense API call failed, using mock behavior:', error);
       const newExpense: Expense = {
         ...expense,
         id: Date.now().toString(),

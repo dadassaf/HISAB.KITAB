@@ -79,12 +79,16 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
+      console.log('Starting signup process...');
+      
       // Register user with API
       const { token, user } = await apiService.register(
         formData.name.trim(),
         formData.email.trim(),
         formData.password
       );
+
+      console.log('Registration successful:', user);
 
       // Store auth token
       apiService.setAuthToken(token);
@@ -110,7 +114,7 @@ export default function SignupScreen() {
       // });
     } catch (error) {
       console.error('Signup error:', error);
-      Alert.alert('Error', 'Signup failed. Please try again.');
+      Alert.alert('Error', error.message || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
     }

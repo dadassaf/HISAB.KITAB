@@ -16,7 +16,7 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:8081', 'http://localhost:3000', 'http://127.0.0.1:8081'],
+  origin: ['http://localhost:8081', 'http://localhost:3000', 'http://127.0.0.1:8081', 'http://localhost:19006'],
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -25,6 +25,9 @@ app.use(express.urlencoded({ extended: true }));
 // Request logging middleware
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+  }
   next();
 });
 
@@ -40,7 +43,8 @@ app.get('/', (req, res) => {
     message: 'SplitWise API is running!',
     timestamp: new Date().toISOString(),
     status: 'healthy',
-    version: '1.0.0'
+    version: '1.0.0',
+    database: 'Connected to MongoDB'
   });
 });
 
@@ -76,6 +80,8 @@ app.listen(PORT, () => {
   console.log(`📱 API available at http://localhost:${PORT}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔑 JWT Secret configured: ${!!process.env.JWT_SECRET}`);
+  console.log(`🗄️ MongoDB URI configured: ${!!process.env.MONGO_URI}`);
 });
 
 module.exports = app;

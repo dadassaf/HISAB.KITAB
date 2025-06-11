@@ -30,8 +30,12 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
+      console.log('Starting login process...');
+      
       // Login with API
       const { token, user } = await apiService.login(email.trim(), password);
+      
+      console.log('Login successful:', user);
       
       // Store auth token
       apiService.setAuthToken(token);
@@ -44,7 +48,7 @@ export default function LoginScreen() {
       ]);
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Error', 'Login failed. Please try again.');
+      Alert.alert('Error', error.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -56,8 +60,12 @@ export default function LoginScreen() {
     setPassword('demo123');
     
     try {
+      console.log('Starting demo login...');
+      
       // Demo login with API
       const { token, user } = await apiService.login('demo@example.com', 'demo123');
+      
+      console.log('Demo login successful:', user);
       
       // Store auth token
       apiService.setAuthToken(token);
