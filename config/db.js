@@ -6,7 +6,7 @@ const connectDB = async () => {
     if (!process.env.MONGO_URI) {
       console.error('❌ MONGO_URI environment variable is not set');
       console.log('📝 Please add your MongoDB connection string to the .env file');
-      console.log('Example: MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/splitwise');
+      console.log('Example: MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/splitwise?retryWrites=true&w=majority');
       process.exit(1);
     }
 
@@ -54,6 +54,7 @@ const connectDB = async () => {
     console.log('   1. Replace your_username and your_password in .env file');
     console.log('   2. Whitelist your IP address in MongoDB Atlas');
     console.log('   3. Ensure your cluster is running');
+    console.log('   4. URL encode special characters in your password');
     
     process.exit(1);
   }

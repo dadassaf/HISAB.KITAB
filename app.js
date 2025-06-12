@@ -44,7 +44,7 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     status: 'healthy',
     version: '1.0.0',
-    database: 'Connected to MongoDB'
+    database: mongoose.connection.readyState === 1 ? 'Connected to MongoDB' : 'Database connection issue'
   });
 });
 

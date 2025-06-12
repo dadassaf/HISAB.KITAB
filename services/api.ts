@@ -68,60 +68,6 @@ const mockExpenses: { [groupId: string]: Expense[] } = {
       date: '2024-01-17',
       createdAt: '2024-01-17T19:45:00Z'
     }
-  ],
-  '2': [
-    {
-      id: '4',
-      groupId: '2',
-      description: 'Rent payment',
-      amount: 1800.00,
-      paidBy: 'David',
-      participants: ['David', 'Emma', 'Frank'],
-      date: '2024-01-01',
-      createdAt: '2024-01-01T09:00:00Z'
-    },
-    {
-      id: '5',
-      groupId: '2',
-      description: 'Utilities',
-      amount: 350.00,
-      paidBy: 'Emma',
-      participants: ['David', 'Emma', 'Frank'],
-      date: '2024-01-05',
-      createdAt: '2024-01-05T16:20:00Z'
-    },
-    {
-      id: '6',
-      groupId: '2',
-      description: 'Groceries',
-      amount: 200.00,
-      paidBy: 'Frank',
-      participants: ['David', 'Emma', 'Frank'],
-      date: '2024-01-10',
-      createdAt: '2024-01-10T11:30:00Z'
-    }
-  ],
-  '3': [
-    {
-      id: '7',
-      groupId: '3',
-      description: 'Pizza lunch',
-      amount: 125.75,
-      paidBy: 'Grace',
-      participants: ['Grace', 'Henry', 'Ivy', 'Jack'],
-      date: '2024-01-20',
-      createdAt: '2024-01-20T12:15:00Z'
-    },
-    {
-      id: '8',
-      groupId: '3',
-      description: 'Coffee and desserts',
-      amount: 60.00,
-      paidBy: 'Henry',
-      participants: ['Grace', 'Henry', 'Ivy', 'Jack'],
-      date: '2024-01-20',
-      createdAt: '2024-01-20T15:45:00Z'
-    }
   ]
 };
 
@@ -172,33 +118,6 @@ api.interceptors.response.use(
   }
 );
 
-// Helper function to calculate balances and totals
-const calculateGroupStats = (expenses: Expense[], members: string[]) => {
-  const balances: { [member: string]: number } = {};
-  let totalExpenses = 0;
-
-  // Initialize balances
-  members.forEach(member => {
-    balances[member] = 0;
-  });
-
-  // Calculate balances from expenses
-  expenses.forEach(expense => {
-    totalExpenses += expense.amount;
-    const splitAmount = expense.amount / expense.participants.length;
-
-    // Add to payer's balance
-    balances[expense.paidBy] = (balances[expense.paidBy] || 0) + expense.amount;
-
-    // Subtract split amount from each participant
-    expense.participants.forEach(participant => {
-      balances[participant] = (balances[participant] || 0) - splitAmount;
-    });
-  });
-
-  return { balances, totalExpenses };
-};
-
 // API Service Functions
 export const apiService = {
   // Authentication
@@ -228,7 +147,6 @@ export const apiService = {
       return { token, user };
     } catch (error) {
       console.error('Login API call failed:', error);
-      // Don't fallback to mock data for login - throw the error
       throw new Error(error.response?.data?.message || 'Login failed');
     }
   },
@@ -251,7 +169,7 @@ export const apiService = {
 
     try {
       console.log('Attempting registration with:', { name, email });
-      const response = await api.post('/users/add', { name, email, password });
+      const response = await api.post('/users/register', { name, email, password });
       console.log('Registration response:', response.data);
       
       const { token, user } = response.data;
@@ -259,8 +177,7 @@ export const apiService = {
       return { token, user };
     } catch (error) {
       console.error('Registration API call failed:', error);
-      // Don't fallback to mock data for registration - throw the error
-      throw new Error(error.response?.data?.error || error.response?.data?.message || 'Registration failed');
+      throw new Error(error.response?.data?.message || 'Registration failed');
     }
   },
 
@@ -289,33 +206,7 @@ export const apiService = {
       const response = await api.get('/groups');
       console.log('Groups response:', response.data);
       
-      const groups = response.data.data || response.data;
-
-      // For each group, fetch expenses and calculate stats
-      const groupsWithStats = await Promise.all(
-        groups.map(async (group: any) => {
-          try {
-            const expensesResponse = await api.get(`/expenses/group/${group.id}`);
-            const expenses = expensesResponse.data.data || expensesResponse.data;
-            const { balances, totalExpenses } = calculateGroupStats(expenses, group.members);
-
-            return {
-              ...group,
-              totalExpenses,
-              balances,
-            };
-          } catch (error) {
-            console.warn(`Failed to fetch expenses for group ${group.id}:`, error);
-            return {
-              ...group,
-              totalExpenses: 0,
-              balances: {},
-            };
-          }
-        })
-      );
-
-      return groupsWithStats;
+      return response.data.data || response.data;
     } catch (error) {
       console.warn('Groups API call failed, using mock data:', error);
       return mockGroups;
@@ -334,20 +225,10 @@ export const apiService = {
 
     try {
       console.log('Fetching group:', id);
-      const [groupResponse, expensesResponse] = await Promise.all([
-        api.get(`/groups/${id}`),
-        api.get(`/expenses/group/${id}`)
-      ]);
-
-      const group = groupResponse.data.data || groupResponse.data;
-      const expenses = expensesResponse.data.data || expensesResponse.data;
-      const { balances, totalExpenses } = calculateGroupStats(expenses, group.members);
-
-      return {
-        ...group,
-        totalExpenses,
-        balances,
-      };
+      const response = await api.get(`/groups/${id}`);
+      console.log('Group response:', response.data);
+      
+      return response.data.data || response.data;
     } catch (error) {
       console.warn('Group API call failed, using mock data:', error);
       const group = mockGroups.find(g => g.id === id);
@@ -379,16 +260,8 @@ export const apiService = {
       
       return response.data.data || response.data;
     } catch (error) {
-      console.warn('Create group API call failed, using mock behavior:', error);
-      const newGroup: Group = {
-        ...group,
-        id: Date.now().toString(),
-        totalExpenses: 0,
-        balances: {},
-        createdAt: new Date().toISOString(),
-      };
-      mockGroups.unshift(newGroup);
-      return newGroup;
+      console.error('Create group API call failed:', error);
+      throw new Error(error.response?.data?.message || 'Failed to create group');
     }
   },
 
@@ -430,12 +303,6 @@ export const apiService = {
           }
           mockExpenses[expense.groupId].unshift(newExpense);
           
-          // Update group totals
-          const group = mockGroups.find(g => g.id === expense.groupId);
-          if (group) {
-            group.totalExpenses += expense.amount;
-          }
-          
           resolve(newExpense);
         }, 500);
       });
@@ -448,25 +315,8 @@ export const apiService = {
       
       return response.data.data || response.data;
     } catch (error) {
-      console.warn('Create expense API call failed, using mock behavior:', error);
-      const newExpense: Expense = {
-        ...expense,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-      };
-      
-      if (!mockExpenses[expense.groupId]) {
-        mockExpenses[expense.groupId] = [];
-      }
-      mockExpenses[expense.groupId].unshift(newExpense);
-      
-      // Update group totals
-      const group = mockGroups.find(g => g.id === expense.groupId);
-      if (group) {
-        group.totalExpenses += expense.amount;
-      }
-      
-      return newExpense;
+      console.error('Create expense API call failed:', error);
+      throw new Error(error.response?.data?.message || 'Failed to create expense');
     }
   },
 };
